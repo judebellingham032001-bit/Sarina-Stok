@@ -6,12 +6,10 @@ import Papa from 'papaparse';
 // HELPER PARSE NILAI STOK
 function parseStockValue(valStr: string): string | null {
   if (!valStr || valStr.trim() === '' || valStr.trim() === '-') {
-    return null; // Strip (-) atau kosong -> SEMBUNYIKAN KOTAK
+    return null; 
   }
 
   let clean = valStr.trim();
-
-  // Ambil angka
   const match = clean.match(/^[\d.,]+/);
   if (!match) return null;
 
@@ -19,13 +17,8 @@ function parseStockValue(valStr: string): string | null {
   const num = parseFloat(numPart);
 
   if (isNaN(num)) return null;
+  if (num === 0) return '0 ikat';
 
-  // Jika 0 murni
-  if (num === 0) {
-    return '0 ikat';
-  }
-
-  // Desimal cantik
   const whole = Math.floor(num);
   const decimal = Math.round((num - whole) * 100) / 100;
 
@@ -54,19 +47,15 @@ export default function DashboardPage() {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
 
-  // FUNGSI FETCHING CLIENT-SIDE (BYPASS CACHE)
   const loadStockData = async () => {
     setLoading(true);
-    
-    // LINK SUDAH GW HARDCODE SESUAI ID DI GAMBAR LU & DIUBAH JADI OUTPUT=CSV
-    const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTk45R6yrkdMFmWRP5qX5JwmV1bSG7_V5442AqF3gRGbSeNJRCoXEnQkx6RwLfxuNV_Xhg75pCZwasF/pub?output=csv';
+
+    // URL CSV LANGSUNG DENGAN PARAMETER TIMESTAMP AGAR BYPASS CACHE 100%
+    const timestamp = Date.now();
+    const csvUrl = `https://docs.google.com/spreadsheets/d/1xTVwqw9a3BMrmHEir9wQEidVxIgUhvCP_qj8jHY0u7w/export?format=csv&gid=0&_cb=${timestamp}`;
 
     try {
-      // Panggil CSV langsung dari browser + parameter timestamp biar browser gak nge-cache sama sekali
-      const response = await fetch(`${csvUrl}&_cb=${Date.now()}`, {
-        cache: 'no-store',
-      });
-
+      const response = await fetch(csvUrl, { cache: 'no-store' });
       const csvText = await response.text();
 
       Papa.parse<Record<string, string>>(csvText, {
