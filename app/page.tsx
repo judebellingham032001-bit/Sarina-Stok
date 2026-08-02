@@ -3,29 +3,25 @@
 import { useState, useEffect } from 'react';
 import Papa from 'papaparse';
 
-// Helper super tangguh untuk membaca segala bentuk format dari Google Sheets
-function formatStockValue(valStr: string): string {
-  if (!valStr || valStr === '-' || valStr.trim() === '') return '';
+// Helper parser angka & desimal super fleksibel
+function parseStockValue(valStr: string): string | null {
+  if (!valStr || valStr === '-' || valStr.trim() === '' || valStr.trim() === '0') {
+    return null;
+  }
 
   let clean = valStr.trim();
 
-  // 1. Ambil bagian angka pertama yang ditemukan (termasuk koma/titik desimal)
-  // Contoh: "122, ikat" -> "122,", "2,5 ikat" -> "2,5"
+  // Ambil pola angka pertama
   const match = clean.match(/^[\d.,]+/);
-  if (!match) return '';
+  if (!match) return null;
 
-  let numPart = match[0];
-
-  // Jika ada koma nyangkut di paling akhir angka (misal "122," atau "2,"), buang komanya
-  numPart = numPart.replace(/[,.]$/, '');
-
-  // Ubah koma desimal Indonesia menjadi titik desimal standar
-  numPart = numPart.replace(',', '.');
-
+  // Bersihkan koma/titik gantung di akhir (misal "2," -> "2")
+  let numPart = match[0].replace(/[,.]$/, '').replace(',', '.');
   const num = parseFloat(numPart);
-  if (isNaN(num) || num === 0) return '';
 
-  // 2. Format Pecahan Cantik (misal 2.5 -> 2 ½)
+  if (isNaN(num) || num <= 0) return null;
+
+  // Format pecahan cantik (0.5 -> ½, 0.25 -> ¼, 0.75 -> ¾)
   const whole = Math.floor(num);
   const decimal = Math.round((num - whole) * 100) / 100;
 
@@ -63,7 +59,18 @@ export default function DashboardPage() {
       }
 
       try {
-        const res = await fetch(csvUrl, { cache: 'no-store' });
+        // Bypass Cache mutlak
+        const separator = csvUrl.includes('?') ? '&' : '?';
+        const freshUrl = `${csvUrl}${separator}t=${Date.now()}`;
+        
+        const res = await fetch(freshUrl, { 
+          cache: 'no-store',
+          headers: {
+            'Pragma': 'no-cache',
+            'Cache-Control': 'no-cache'
+          }
+        });
+        
         const csvText = await res.text();
 
         Papa.parse<Record<string, string>>(csvText, {
@@ -94,9 +101,10 @@ export default function DashboardPage() {
                 const stocks: { size: string; value: string }[] = [];
 
                 sizeHeaders.forEach((size) => {
-                  const val = formatStockValue(row[size] || '');
-                  if (val) {
-                    stocks.push({ size, value: val });
+                  const valText = parseStockValue(row[size] || '');
+                  // CUMA MASUKKAN UKURAN YANG MEMILIKI ANGKA/STOK DI SHEET
+                  if (valText) {
+                    stocks.push({ size, value: valText });
                   }
                 });
 
@@ -171,17 +179,17 @@ export default function DashboardPage() {
                 key={idx}
                 className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:border-slate-300 transition-all"
               >
-                {/* Nama Produk */}
+                {/* Nama Produk & Info Jumlah Ukuran */}
                 <div className="flex justify-between items-center border-b border-slate-100 pb-2 mb-3">
                   <h2 className="font-bold text-slate-900 text-base sm:text-lg">
                     {prod.name}
                   </h2>
-                  <span className="text-xs text-slate-400 font-medium">
+                  <span className="text-xs text-emerald-700 font-semibold bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200">
                     {prod.stocks.length} Ukuran Ready
                   </span>
                 </div>
 
-                {/* List Stok Ukuran */}
+                {/* List Ukuran Yang Ada Stoknya Saja */}
                 {prod.stocks.length === 0 ? (
                   <p className="text-xs text-slate-400 italic">
                     Stok kemasan kosong / habis
@@ -191,7 +199,7 @@ export default function DashboardPage() {
                     {prod.stocks.map((stk, sIdx) => (
                       <div
                         key={sIdx}
-                        className="bg-slate-50 border border-slate-200/80 rounded-lg p-2.5 flex flex-col justify-between"
+                        className="bg-slate-50 border border-slate-200 rounded-lg p-2.5 flex flex-col justify-between"
                       >
                         <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider">
                           {stk.size}
