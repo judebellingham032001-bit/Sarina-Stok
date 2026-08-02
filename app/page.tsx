@@ -1,9 +1,10 @@
-'use client';
-
-import { useState, useEffect } from 'react';
 import Papa from 'papaparse';
 
-// Helper parser sel Google Sheet
+// Matikan semua bentuk cache di Vercel & Next.js secara total
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
+// Helper parsing nilai sel Google Sheet
 function parseStockValue(valStr: string): string | null {
   if (!valStr || valStr.trim() === '' || valStr.trim() === '-') {
     return null; // Strip (-) atau kosong total -> SEMBUNYIKAN KOTAK
@@ -49,85 +50,76 @@ interface ProductItem {
   stocks: { size: string; value: string }[];
 }
 
-export default function DashboardPage() {
-  const [products, setProducts] = useState<ProductItem[]>([]);
-  const [search, setSearch] = useState('');
-  const [loading, setLoading] = useState(true);
+async function getStockData(): Promise<ProductItem[]> {
+  const csvUrl = process.env.NEXT_PUBLIC_SHEET_CSV_URL;
+  if (!csvUrl) return [];
 
-  useEffect(() => {
-    async function fetchData() {
-      try {
-        setLoading(true);
+  try {
+    // Trik panggil Google Sheet langsung dari Vercel Server dengan Timestamp unik
+    const separator = csvUrl.includes('?') ? '&' : '?';
+    const freshUrl = `${csvUrl}${separator}_t=${Date.now()}`;
 
-        // Panggil internal API route yang bebas cache
-        const res = await fetch(`/api/stocks?_t=${Date.now()}`, {
-          cache: 'no-store',
-          headers: {
-            'Cache-Control': 'no-cache',
-            'Pragma': 'no-cache',
-          },
-        });
+    const res = await fetch(freshUrl, {
+      cache: 'no-store',
+      headers: {
+        'Cache-Control': 'no-cache, no-store, max-age=0, must-revalidate',
+        'Pragma': 'no-cache',
+      },
+    });
 
-        if (!res.ok) {
-          throw new Error('Gagal mengambil data dari server');
-        }
+    if (!res.ok) return [];
 
-        const csvText = await res.text();
+    const csvText = await res.text();
 
-        Papa.parse<Record<string, string>>(csvText, {
-          header: true,
-          skipEmptyLines: true,
-          complete: (results) => {
-            const rawData = results.data;
-            if (rawData.length === 0) {
-              setLoading(false);
-              return;
+    return new Promise((resolve) => {
+      Papa.parse<Record<string, string>>(csvText, {
+        header: true,
+        skipEmptyLines: true,
+        complete: (results) => {
+          const rawData = results.data;
+          if (rawData.length === 0) return resolve([]);
+
+          const rawHeaders = Object.keys(rawData[0]);
+          const productKey = rawHeaders[0];
+          const sizeHeaders = rawHeaders.slice(1).filter(
+            (h) => h && !h.startsWith('_') && h.trim() !== ''
+          );
+
+          const parsedProducts: ProductItem[] = [];
+
+          rawData.forEach((row) => {
+            const productName = row[productKey]?.trim();
+            if (
+              productName &&
+              productName !== '-' &&
+              !productName.toLowerCase().includes('table otomatis')
+            ) {
+              const stocks: { size: string; value: string }[] = [];
+
+              sizeHeaders.forEach((size) => {
+                const valText = parseStockValue(row[size] || '');
+                if (valText !== null) {
+                  stocks.push({ size, value: valText });
+                }
+              });
+
+              parsedProducts.push({ name: productName, stocks });
             }
+          });
 
-            const rawHeaders = Object.keys(rawData[0]);
-            const productKey = rawHeaders[0];
-            const sizeHeaders = rawHeaders.slice(1).filter(
-              (h) => h && !h.startsWith('_') && h.trim() !== ''
-            );
+          resolve(parsedProducts);
+        },
+      });
+    });
+  } catch (error) {
+    console.error('Error fetching server side stock:', error);
+    return [];
+  }
+}
 
-            const parsedProducts: ProductItem[] = [];
-
-            rawData.forEach((row) => {
-              const productName = row[productKey]?.trim();
-              if (
-                productName &&
-                productName !== '-' &&
-                !productName.toLowerCase().includes('table otomatis')
-              ) {
-                const stocks: { size: string; value: string }[] = [];
-
-                sizeHeaders.forEach((size) => {
-                  const valText = parseStockValue(row[size] || '');
-                  if (valText !== null) {
-                    stocks.push({ size, value: valText });
-                  }
-                });
-
-                parsedProducts.push({ name: productName, stocks });
-              }
-            });
-
-            setProducts(parsedProducts);
-            setLoading(false);
-          },
-        });
-      } catch (err) {
-        console.error('Error fetching stocks:', err);
-        setLoading(false);
-      }
-    }
-
-    fetchData();
-  }, []);
-
-  const filteredProducts = products.filter((p) =>
-    p.name.toLowerCase().includes(search.toLowerCase())
-  );
+export default async function DashboardPage() {
+  // Fetching dilakukan langsung di Server Vercel setiap kali halaman dimuat / direfresh
+  const products = await getStockData();
 
   return (
     <div className="min-h-screen bg-slate-100 p-4 sm:p-6 text-slate-800">
@@ -149,32 +141,14 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Search Bar */}
-        <div className="relative">
-          <input
-            type="text"
-            placeholder="🔍 Cari nama produk (contoh: Almond)..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-white border border-slate-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-slate-800 shadow-sm"
-          />
-        </div>
-
-        {/* Loading State */}
-        {loading && (
-          <div className="bg-white p-8 text-center rounded-2xl border border-slate-200 shadow-sm text-slate-500 text-sm">
-            Memuat data stok terbaru...
-          </div>
-        )}
-
         {/* Product Cards List */}
-        {!loading && filteredProducts.length === 0 ? (
+        {products.length === 0 ? (
           <div className="bg-white p-8 text-center rounded-2xl border border-slate-200 shadow-sm text-slate-500 text-sm">
-            {search ? 'Produk tidak ditemukan.' : 'Belum ada data stok.'}
+            Belum ada data stok / Gagal mengambil data dari Google Sheet.
           </div>
         ) : (
           <div className="space-y-3">
-            {filteredProducts.map((prod, idx) => (
+            {products.map((prod, idx) => (
               <div
                 key={idx}
                 className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:border-slate-300 transition-all"
