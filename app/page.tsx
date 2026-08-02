@@ -1,15 +1,17 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Papa from 'papaparse';
 
 // HELPER PARSE NILAI STOK
-function parseStockValue(valStr: any): string | null {
-  if (valStr === null || valStr === undefined) return null;
-  
-  let clean = String(valStr).trim();
-  if (clean === '' || clean === '-') return null; // Strip/Kosong -> SEMBUNYIKAN KOTAK
+function parseStockValue(valStr: string): string | null {
+  if (!valStr || valStr.trim() === '' || valStr.trim() === '-') {
+    return null; // Strip (-) atau kosong -> SEMBUNYIKAN KOTAK
+  }
 
-  // Ambil pola angka
+  let clean = valStr.trim();
+
+  // Ambil angka
   const match = clean.match(/^[\d.,]+/);
   if (!match) return null;
 
@@ -23,7 +25,7 @@ function parseStockValue(valStr: any): string | null {
     return '0 ikat';
   }
 
-  // Desimal cantik (½, ¼, ¾)
+  // Desimal cantik
   const whole = Math.floor(num);
   const decimal = Math.round((num - whole) * 100) / 100;
 
@@ -42,12 +44,6 @@ function parseStockValue(valStr: any): string | null {
   return `${finalValue} ikat`;
 }
 
-// Helper untuk mengekstrak Spreadsheet ID dari URL apapun
-function getSpreadsheetId(url: string): string | null {
-  const match = url.match(/\/d\/([a-zA-Z0-9-_]+)/);
-  return match ? match[1] : null;
-}
-
 interface ProductItem {
   name: string;
   stocks: { size: string; value: string }[];
@@ -58,73 +54,66 @@ export default function DashboardPage() {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
 
+  // FUNGSI FETCHING CLIENT-SIDE (BYPASS CACHE)
   const loadStockData = async () => {
     setLoading(true);
-    const rawUrl = process.env.NEXT_PUBLIC_SHEET_CSV_URL || '';
-    const sheetId = getSpreadsheetId(rawUrl);
-
-    if (!sheetId) {
-      console.error('Spreadsheet ID tidak ditemukan dari ENV!');
-      setLoading(false);
-      return;
-    }
+    
+    // LINK SUDAH GW HARDCODE SESUAI ID DI GAMBAR LU & DIUBAH JADI OUTPUT=CSV
+    const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTk45R6yrkdMFmWRP5qX5JwmV1bSG7_V5442AqF3gRGbSeNJRCoXEnQkx6RwLfxuNV_Xhg75pCZwasF/pub?output=csv';
 
     try {
-      // PANGGIL GVIZ API (Tembak langsung ke Live Memory Google Sheet, Bypass CDN Cache 100%)
-      const gvizUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&_t=${Date.now()}`;
-      
-      const response = await fetch(gvizUrl, { cache: 'no-store' });
-      const textData = await response.text();
-
-      // Parse JSONP bawaan Google GViz
-      const jsonString = textData.substring(47, textData.length - 2);
-      const json = JSON.parse(jsonString);
-
-      const table = json.table;
-      if (!table || !table.rows || table.rows.length === 0) {
-        setProducts([]);
-        setLoading(false);
-        return;
-      }
-
-      // Ambil Header (Ukuran: 50 GRAM, 70 GRAM, dll)
-      const headers: string[] = table.cols.map((col: any) => col.label || '');
-      const parsedProducts: ProductItem[] = [];
-
-      // Ambil Data Baris
-      table.rows.forEach((row: any) => {
-        const cells = row.c;
-        if (!cells || cells.length === 0) return;
-
-        const productName = cells[0]?.v ? String(cells[0].v).trim() : '';
-
-        if (
-          productName &&
-          productName !== '-' &&
-          !productName.toLowerCase().includes('table otomatis')
-        ) {
-          const stocks: { size: string; value: string }[] = [];
-
-          for (let colIdx = 1; colIdx < headers.length; colIdx++) {
-            const sizeName = headers[colIdx]?.trim();
-            if (!sizeName || sizeName.startsWith('_')) continue;
-
-            const rawVal = cells[colIdx]?.v ?? cells[colIdx]?.f ?? null;
-            const parsedVal = parseStockValue(rawVal);
-
-            if (parsedVal !== null) {
-              stocks.push({ size: sizeName, value: parsedVal });
-            }
-          }
-
-          parsedProducts.push({ name: productName, stocks });
-        }
+      // Panggil CSV langsung dari browser + parameter timestamp biar browser gak nge-cache sama sekali
+      const response = await fetch(`${csvUrl}&_cb=${Date.now()}`, {
+        cache: 'no-store',
       });
 
-      setProducts(parsedProducts);
-      setLoading(false);
+      const csvText = await response.text();
+
+      Papa.parse<Record<string, string>>(csvText, {
+        header: true,
+        skipEmptyLines: true,
+        complete: (results) => {
+          const rawData = results.data;
+          if (!rawData || rawData.length === 0) {
+            setProducts([]);
+            setLoading(false);
+            return;
+          }
+
+          const rawHeaders = Object.keys(rawData[0]);
+          const productKey = rawHeaders[0];
+          const sizeHeaders = rawHeaders.slice(1).filter(
+            (h) => h && !h.startsWith('_') && h.trim() !== ''
+          );
+
+          const parsedProducts: ProductItem[] = [];
+
+          rawData.forEach((row) => {
+            const productName = row[productKey]?.trim();
+            if (
+              productName &&
+              productName !== '-' &&
+              !productName.toLowerCase().includes('table otomatis')
+            ) {
+              const stocks: { size: string; value: string }[] = [];
+
+              sizeHeaders.forEach((size) => {
+                const valText = parseStockValue(row[size] || '');
+                if (valText !== null) {
+                  stocks.push({ size, value: valText });
+                }
+              });
+
+              parsedProducts.push({ name: productName, stocks });
+            }
+          });
+
+          setProducts(parsedProducts);
+          setLoading(false);
+        },
+      });
     } catch (err) {
-      console.error('Gagal mengambil data dari Google Sheet GViz:', err);
+      console.error('Gagal mengambil data:', err);
       setLoading(false);
     }
   };
@@ -176,7 +165,7 @@ export default function DashboardPage() {
         {/* Loading State */}
         {loading && (
           <div className="bg-white p-8 text-center rounded-2xl border border-slate-200 shadow-sm text-slate-500 text-sm">
-            ⏳ Memuat data langsung dari memori Google Sheet...
+            ⏳ Memuat data langsung dari Google Sheet...
           </div>
         )}
 
