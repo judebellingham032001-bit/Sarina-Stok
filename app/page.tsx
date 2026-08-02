@@ -3,15 +3,15 @@
 import { useState, useEffect } from 'react';
 import Papa from 'papaparse';
 
-// Helper pembaca nilai sel Google Sheet
+// Helper parser sel Google Sheet
 function parseStockValue(valStr: string): string | null {
   if (!valStr || valStr.trim() === '' || valStr.trim() === '-') {
-    return null; // Jika strip (-) atau kosong, JANGAN TAMPILKAN KOTAKNYA
+    return null; // Strip (-) atau kosong total -> SEMBUNYIKAN KOTAK
   }
 
   let clean = valStr.trim();
 
-  // Ambil karakter angka dan koma/titik desimal
+  // Ambil pola angka di awal teks
   const match = clean.match(/^[\d.,]+/);
   if (!match) return null;
 
@@ -20,12 +20,12 @@ function parseStockValue(valStr: string): string | null {
 
   if (isNaN(num)) return null;
 
-  // Jika nilainya 0 murni, tampilkan "0 ikat"
+  // Jika nilainya murni 0
   if (num === 0) {
     return '0 ikat';
   }
 
-  // Format pecahan cantik jika desimal (0.5 -> ½, 0.25 -> ¼, 0.75 -> ¾)
+  // Pecahan desimal cantik
   const whole = Math.floor(num);
   const decimal = Math.round((num - whole) * 100) / 100;
 
@@ -63,20 +63,8 @@ export default function DashboardPage() {
       }
 
       try {
-        // PERBAIKAN MATIIN CACHE MATI-MATIAN
-        const separator = csvUrl.includes('?') ? '&' : '?';
-        const freshUrl = `${csvUrl}${separator}nocache=${Date.now()}`;
-
-        const res = await fetch(freshUrl, {
-          cache: 'no-store',
-          next: { revalidate: 0 },
-          headers: {
-            'Cache-Control': 'no-cache, no-store, must-revalidate',
-            'Pragma': 'no-cache',
-            'Expires': '0',
-          },
-        });
-
+        // Ambil CSV murni tanpa merusak URL Google Sheet
+        const res = await fetch(csvUrl, { cache: 'no-store' });
         const csvText = await res.text();
 
         Papa.parse<Record<string, string>>(csvText, {
@@ -108,7 +96,7 @@ export default function DashboardPage() {
 
                 sizeHeaders.forEach((size) => {
                   const valText = parseStockValue(row[size] || '');
-                  // Cuma dimasukkan kalau bukan null (Strip/Kosong diabaikan, Angka/0 Tetap Masuk)
+                  // Cuma masukin kalau bukan null
                   if (valText !== null) {
                     stocks.push({ size, value: valText });
                   }
@@ -185,17 +173,17 @@ export default function DashboardPage() {
                 key={idx}
                 className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:border-slate-300 transition-all"
               >
-                {/* Nama Produk & Info Jumlah Ukuran */}
+                {/* Nama Produk & Info Ukuran */}
                 <div className="flex justify-between items-center border-b border-slate-100 pb-2 mb-3">
                   <h2 className="font-bold text-slate-900 text-base sm:text-lg">
                     {prod.name}
                   </h2>
                   <span className="text-xs text-emerald-700 font-semibold bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200">
-                    {prod.stocks.length} Ukuran Tampil
+                    {prod.stocks.length} Ukuran Ready
                   </span>
                 </div>
 
-                {/* List Ukuran Produk */}
+                {/* List Stok Ukuran */}
                 {prod.stocks.length === 0 ? (
                   <p className="text-xs text-slate-400 italic">
                     Belum ada ukuran aktif untuk produk ini
