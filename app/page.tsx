@@ -1,17 +1,15 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Papa from 'papaparse';
 
 // HELPER PARSE NILAI STOK
-function parseStockValue(valStr: string): string | null {
-  if (!valStr || valStr.trim() === '' || valStr.trim() === '-') {
-    return null; // Strip (-) atau kosong -> SEMBUNYIKAN KOTAK
-  }
+function parseStockValue(valStr: any): string | null {
+  if (valStr === null || valStr === undefined) return null;
+  
+  let clean = String(valStr).trim();
+  if (clean === '' || clean === '-') return null; // Strip/Kosong -> SEMBUNYIKAN KOTAK
 
-  let clean = valStr.trim();
-
-  // Ambil angka
+  // Ambil pola angka
   const match = clean.match(/^[\d.,]+/);
   if (!match) return null;
 
@@ -25,7 +23,7 @@ function parseStockValue(valStr: string): string | null {
     return '0 ikat';
   }
 
-  // Desimal cantik
+  // Desimal cantik (½, ¼, ¾)
   const whole = Math.floor(num);
   const decimal = Math.round((num - whole) * 100) / 100;
 
@@ -44,6 +42,12 @@ function parseStockValue(valStr: string): string | null {
   return `${finalValue} ikat`;
 }
 
+// Helper untuk mengekstrak Spreadsheet ID dari URL apapun
+function getSpreadsheetId(url: string): string | null {
+  const match = url.match(/\/d\/([a-zA-Z0-9-_]+)/);
+  return match ? match[1] : null;
+}
+
 interface ProductItem {
   name: string;
   stocks: { size: string; value: string }[];
@@ -54,68 +58,73 @@ export default function DashboardPage() {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
 
-  // FUNGSI FETCHING SAMA PERSIS KAYA HTML/JS BIASA
   const loadStockData = async () => {
     setLoading(true);
-    const csvUrl = process.env.NEXT_PUBLIC_SHEET_CSV_URL;
+    const rawUrl = process.env.NEXT_PUBLIC_SHEET_CSV_URL || '';
+    const sheetId = getSpreadsheetId(rawUrl);
 
-    if (!csvUrl) {
+    if (!sheetId) {
+      console.error('Spreadsheet ID tidak ditemukan dari ENV!');
       setLoading(false);
       return;
     }
 
     try {
-      // Panggil CSV langsung dari browser + parameter timestamp biar browser gak nge-cache
-      const response = await fetch(`${csvUrl}&_cb=${Date.now()}`, {
-        cache: 'no-store',
-      });
+      // PANGGIL GVIZ API (Tembak langsung ke Live Memory Google Sheet, Bypass CDN Cache 100%)
+      const gvizUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&_t=${Date.now()}`;
+      
+      const response = await fetch(gvizUrl, { cache: 'no-store' });
+      const textData = await response.text();
 
-      const csvText = await response.text();
+      // Parse JSONP bawaan Google GViz
+      const jsonString = textData.substring(47, textData.length - 2);
+      const json = JSON.parse(jsonString);
 
-      Papa.parse<Record<string, string>>(csvText, {
-        header: true,
-        skipEmptyLines: true,
-        complete: (results) => {
-          const rawData = results.data;
-          if (!rawData || rawData.length === 0) {
-            setLoading(false);
-            return;
+      const table = json.table;
+      if (!table || !table.rows || table.rows.length === 0) {
+        setProducts([]);
+        setLoading(false);
+        return;
+      }
+
+      // Ambil Header (Ukuran: 50 GRAM, 70 GRAM, dll)
+      const headers: string[] = table.cols.map((col: any) => col.label || '');
+      const parsedProducts: ProductItem[] = [];
+
+      // Ambil Data Baris
+      table.rows.forEach((row: any) => {
+        const cells = row.c;
+        if (!cells || cells.length === 0) return;
+
+        const productName = cells[0]?.v ? String(cells[0].v).trim() : '';
+
+        if (
+          productName &&
+          productName !== '-' &&
+          !productName.toLowerCase().includes('table otomatis')
+        ) {
+          const stocks: { size: string; value: string }[] = [];
+
+          for (let colIdx = 1; colIdx < headers.length; colIdx++) {
+            const sizeName = headers[colIdx]?.trim();
+            if (!sizeName || sizeName.startsWith('_')) continue;
+
+            const rawVal = cells[colIdx]?.v ?? cells[colIdx]?.f ?? null;
+            const parsedVal = parseStockValue(rawVal);
+
+            if (parsedVal !== null) {
+              stocks.push({ size: sizeName, value: parsedVal });
+            }
           }
 
-          const rawHeaders = Object.keys(rawData[0]);
-          const productKey = rawHeaders[0];
-          const sizeHeaders = rawHeaders.slice(1).filter(
-            (h) => h && !h.startsWith('_') && h.trim() !== ''
-          );
-
-          const parsedProducts: ProductItem[] = [];
-
-          rawData.forEach((row) => {
-            const productName = row[productKey]?.trim();
-            if (
-              productName &&
-              productName !== '-' &&
-              !productName.toLowerCase().includes('table otomatis')
-            ) {
-              const stocks: { size: string; value: string }[] = [];
-
-              sizeHeaders.forEach((size) => {
-                const valText = parseStockValue(row[size] || '');
-                if (valText !== null) {
-                  stocks.push({ size, value: valText });
-                }
-              });
-
-              parsedProducts.push({ name: productName, stocks });
-            }
-          });
-
-          setProducts(parsedProducts);
-          setLoading(false);
-        },
+          parsedProducts.push({ name: productName, stocks });
+        }
       });
+
+      setProducts(parsedProducts);
+      setLoading(false);
     } catch (err) {
-      console.error('Gagal mengambil data:', err);
+      console.error('Gagal mengambil data dari Google Sheet GViz:', err);
       setLoading(false);
     }
   };
@@ -132,7 +141,7 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-slate-100 p-4 sm:p-6 text-slate-800">
       <div className="max-w-4xl mx-auto space-y-4">
         
-        {/* Header Section + Tombol Manual Refresh */}
+        {/* Header Section */}
         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
             <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
@@ -167,7 +176,7 @@ export default function DashboardPage() {
         {/* Loading State */}
         {loading && (
           <div className="bg-white p-8 text-center rounded-2xl border border-slate-200 shadow-sm text-slate-500 text-sm">
-            ⏳ Memuat data langsung dari Google Sheet...
+            ⏳ Memuat data langsung dari memori Google Sheet...
           </div>
         )}
 
