@@ -3,15 +3,29 @@
 import { useState, useEffect } from 'react';
 import Papa from 'papaparse';
 
-// Helper pecahan
-function formatToFraction(valStr: string): string {
+// Helper super tangguh untuk membaca segala bentuk format dari Google Sheets
+function formatStockValue(valStr: string): string {
   if (!valStr || valStr === '-' || valStr.trim() === '') return '';
 
-  const cleanedStr = valStr.replace(',', '.').replace(/[^0-9.]/g, '');
-  const num = parseFloat(cleanedStr);
+  let clean = valStr.trim();
 
+  // 1. Ambil bagian angka pertama yang ditemukan (termasuk koma/titik desimal)
+  // Contoh: "122, ikat" -> "122,", "2,5 ikat" -> "2,5"
+  const match = clean.match(/^[\d.,]+/);
+  if (!match) return '';
+
+  let numPart = match[0];
+
+  // Jika ada koma nyangkut di paling akhir angka (misal "122," atau "2,"), buang komanya
+  numPart = numPart.replace(/[,.]$/, '');
+
+  // Ubah koma desimal Indonesia menjadi titik desimal standar
+  numPart = numPart.replace(',', '.');
+
+  const num = parseFloat(numPart);
   if (isNaN(num) || num === 0) return '';
 
+  // 2. Format Pecahan Cantik (misal 2.5 -> 2 ½)
   const whole = Math.floor(num);
   const decimal = Math.round((num - whole) * 100) / 100;
 
@@ -20,11 +34,14 @@ function formatToFraction(valStr: string): string {
   else if (Math.abs(decimal - 0.5) < 0.05) fractionStr = '½';
   else if (Math.abs(decimal - 0.75) < 0.05) fractionStr = '¾';
 
+  let finalValue = '';
   if (fractionStr) {
-    return whole > 0 ? `${whole} ${fractionStr}` : fractionStr;
+    finalValue = whole > 0 ? `${whole} ${fractionStr}` : fractionStr;
+  } else {
+    finalValue = String(num).replace('.', ',');
   }
 
-  return String(num).replace('.', ',');
+  return `${finalValue} ikat`;
 }
 
 interface ProductItem {
@@ -77,7 +94,7 @@ export default function DashboardPage() {
                 const stocks: { size: string; value: string }[] = [];
 
                 sizeHeaders.forEach((size) => {
-                  const val = formatToFraction(row[size] || '');
+                  const val = formatStockValue(row[size] || '');
                   if (val) {
                     stocks.push({ size, value: val });
                   }
@@ -180,7 +197,7 @@ export default function DashboardPage() {
                           {stk.size}
                         </span>
                         <span className="text-sm sm:text-base font-bold text-emerald-700 mt-1">
-                          {stk.value} ikat
+                          {stk.value}
                         </span>
                       </div>
                     ))}
