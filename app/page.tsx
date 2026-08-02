@@ -56,15 +56,22 @@ export default function DashboardPage() {
 
   useEffect(() => {
     async function fetchData() {
-      const csvUrl = process.env.NEXT_PUBLIC_SHEET_CSV_URL;
-      if (!csvUrl) {
-        setLoading(false);
-        return;
-      }
-
       try {
-        // Ambil CSV murni tanpa merusak URL Google Sheet
-        const res = await fetch(csvUrl, { cache: 'no-store' });
+        setLoading(true);
+
+        // Panggil internal API route yang bebas cache
+        const res = await fetch(`/api/stocks?_t=${Date.now()}`, {
+          cache: 'no-store',
+          headers: {
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache',
+          },
+        });
+
+        if (!res.ok) {
+          throw new Error('Gagal mengambil data dari server');
+        }
+
         const csvText = await res.text();
 
         Papa.parse<Record<string, string>>(csvText, {
@@ -96,7 +103,6 @@ export default function DashboardPage() {
 
                 sizeHeaders.forEach((size) => {
                   const valText = parseStockValue(row[size] || '');
-                  // Cuma masukin kalau bukan null
                   if (valText !== null) {
                     stocks.push({ size, value: valText });
                   }
@@ -111,7 +117,7 @@ export default function DashboardPage() {
           },
         });
       } catch (err) {
-        console.error('Error fetching CSV:', err);
+        console.error('Error fetching stocks:', err);
         setLoading(false);
       }
     }
