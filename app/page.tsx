@@ -1,65 +1,91 @@
-import Image from "next/image";
+import Papa from 'papaparse';
 
-export default function Home() {
+// Revalidate data tiap 10 detik agar tampilan tetap up-to-date
+export const revalidate = 10;
+
+async function getSheetData() {
+  const csvUrl = process.env.NEXT_PUBLIC_SHEET_CSV_URL;
+
+  if (!csvUrl) {
+    console.error("URL CSV Google Sheet belum diatur di .env.local!");
+    return [];
+  }
+
+  try {
+    const res = await fetch(csvUrl, { next: { revalidate: 10 } });
+    if (!res.ok) throw new Error('Gagal mengambil data dari Google Sheets');
+
+    const csvText = await res.text();
+
+    return new Promise((resolve, reject) => {
+      Papa.parse(csvText, {
+        header: true,
+        skipEmptyLines: true,
+        complete: (results) => resolve(results.data),
+        error: (err) => reject(err),
+      });
+    });
+  } catch (error) {
+    console.error('Error parsing CSV:', error);
+    return [];
+  }
+}
+
+export default async function DashboardPage() {
+  const data = await getSheetData();
+  const headers = data.length > 0 ? Object.keys(data[0]) : [];
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="min-h-screen bg-slate-50 p-4 sm:p-8 text-slate-800">
+      <div className="max-w-6xl mx-auto">
+        {/* Header Dashboard */}
+        <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b pb-4 border-slate-200">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900">Dashboard Live Google Sheet</h1>
+            <p className="text-sm text-slate-500 mt-1">Data otomatis ditarik langsung dari CSV Google Sheets</p>
+          </div>
+          <div className="text-xs bg-emerald-100 text-emerald-800 font-medium px-3 py-1.5 rounded-full w-fit">
+            ● Live Connected
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+
+        {/* Tabel Data */}
+        {data.length === 0 ? (
+          <div className="bg-white p-8 text-center rounded-lg border border-slate-200 shadow-sm text-slate-500">
+            Belum ada data atau gagal memuat URL CSV Google Sheet. Pastikan .env.local sudah diisi dengan benar.
+          </div>
+        ) : (
+          <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm border-collapse">
+                <thead>
+                  <tr className="bg-slate-100 border-b border-slate-200 text-slate-700 uppercase text-xs font-semibold">
+                    {headers.map((header) => (
+                      <th key={header} className="px-4 py-3">
+                        {header}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {data.map((row, idx) => (
+                    <tr key={idx} className="hover:bg-slate-50 transition-colors">
+                      {headers.map((header) => (
+                        <td key={header} className="px-4 py-3 text-slate-600 whitespace-nowrap">
+                          {row[header] || '-'}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="p-3 bg-slate-50 border-t border-slate-200 text-xs text-slate-500 text-right">
+              Total Data: <span className="font-semibold text-slate-700">{data.length}</span> Baris
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
