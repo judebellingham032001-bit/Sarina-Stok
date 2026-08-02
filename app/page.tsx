@@ -3,25 +3,29 @@
 import { useState, useEffect } from 'react';
 import Papa from 'papaparse';
 
-// Helper parser angka & desimal super fleksibel
+// Helper pembaca nilai sel Google Sheet
 function parseStockValue(valStr: string): string | null {
-  if (!valStr || valStr === '-' || valStr.trim() === '' || valStr.trim() === '0') {
-    return null;
+  if (!valStr || valStr.trim() === '' || valStr.trim() === '-') {
+    return null; // Jika strip (-) atau kosong, JANGAN TAMPILKAN KOTAKNYA
   }
 
   let clean = valStr.trim();
 
-  // Ambil pola angka pertama
+  // Ambil karakter angka dan koma/titik desimal
   const match = clean.match(/^[\d.,]+/);
   if (!match) return null;
 
-  // Bersihkan koma/titik gantung di akhir (misal "2," -> "2")
   let numPart = match[0].replace(/[,.]$/, '').replace(',', '.');
   const num = parseFloat(numPart);
 
-  if (isNaN(num) || num <= 0) return null;
+  if (isNaN(num)) return null;
 
-  // Format pecahan cantik (0.5 -> ½, 0.25 -> ¼, 0.75 -> ¾)
+  // Jika nilainya 0 murni, tampilkan "0 ikat"
+  if (num === 0) {
+    return '0 ikat';
+  }
+
+  // Format pecahan cantik jika desimal (0.5 -> ½, 0.25 -> ¼, 0.75 -> ¾)
   const whole = Math.floor(num);
   const decimal = Math.round((num - whole) * 100) / 100;
 
@@ -59,18 +63,20 @@ export default function DashboardPage() {
       }
 
       try {
-        // Bypass Cache mutlak
+        // PERBAIKAN MATIIN CACHE MATI-MATIAN
         const separator = csvUrl.includes('?') ? '&' : '?';
-        const freshUrl = `${csvUrl}${separator}t=${Date.now()}`;
-        
-        const res = await fetch(freshUrl, { 
+        const freshUrl = `${csvUrl}${separator}nocache=${Date.now()}`;
+
+        const res = await fetch(freshUrl, {
           cache: 'no-store',
+          next: { revalidate: 0 },
           headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
             'Pragma': 'no-cache',
-            'Cache-Control': 'no-cache'
-          }
+            'Expires': '0',
+          },
         });
-        
+
         const csvText = await res.text();
 
         Papa.parse<Record<string, string>>(csvText, {
@@ -102,8 +108,8 @@ export default function DashboardPage() {
 
                 sizeHeaders.forEach((size) => {
                   const valText = parseStockValue(row[size] || '');
-                  // CUMA MASUKKAN UKURAN YANG MEMILIKI ANGKA/STOK DI SHEET
-                  if (valText) {
+                  // Cuma dimasukkan kalau bukan null (Strip/Kosong diabaikan, Angka/0 Tetap Masuk)
+                  if (valText !== null) {
                     stocks.push({ size, value: valText });
                   }
                 });
@@ -185,14 +191,14 @@ export default function DashboardPage() {
                     {prod.name}
                   </h2>
                   <span className="text-xs text-emerald-700 font-semibold bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200">
-                    {prod.stocks.length} Ukuran Ready
+                    {prod.stocks.length} Ukuran Tampil
                   </span>
                 </div>
 
-                {/* List Ukuran Yang Ada Stoknya Saja */}
+                {/* List Ukuran Produk */}
                 {prod.stocks.length === 0 ? (
                   <p className="text-xs text-slate-400 italic">
-                    Stok kemasan kosong / habis
+                    Belum ada ukuran aktif untuk produk ini
                   </p>
                 ) : (
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -204,7 +210,13 @@ export default function DashboardPage() {
                         <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider">
                           {stk.size}
                         </span>
-                        <span className="text-sm sm:text-base font-bold text-emerald-700 mt-1">
+                        <span
+                          className={`text-sm sm:text-base font-bold mt-1 ${
+                            stk.value === '0 ikat'
+                              ? 'text-rose-600'
+                              : 'text-emerald-700'
+                          }`}
+                        >
                           {stk.value}
                         </span>
                       </div>
