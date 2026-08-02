@@ -3,7 +3,7 @@ import Papa from 'papaparse';
 // Revalidate data tiap 10 detik agar tampilan tetap up-to-date
 export const revalidate = 10;
 
-async function getSheetData() {
+async function getSheetData(): Promise<Record<string, string>[]> {
   const csvUrl = process.env.NEXT_PUBLIC_SHEET_CSV_URL;
 
   if (!csvUrl) {
@@ -18,11 +18,11 @@ async function getSheetData() {
     const csvText = await res.text();
 
     return new Promise((resolve, reject) => {
-      Papa.parse(csvText, {
+      Papa.parse<Record<string, string>>(csvText, {
         header: true,
         skipEmptyLines: true,
         complete: (results) => resolve(results.data),
-        error: (err) => reject(err),
+        error: (err: Error) => reject(err),
       });
     });
   } catch (error) {
@@ -52,7 +52,7 @@ export default async function DashboardPage() {
         {/* Tabel Data */}
         {data.length === 0 ? (
           <div className="bg-white p-8 text-center rounded-lg border border-slate-200 shadow-sm text-slate-500">
-            Belum ada data atau gagal memuat URL CSV Google Sheet. Pastikan .env.local sudah diisi dengan benar.
+            Belum ada data atau gagal memuat URL CSV Google Sheet. Pastikan Environment Variable sudah diisi dengan benar.
           </div>
         ) : (
           <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
