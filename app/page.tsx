@@ -79,7 +79,6 @@ export default function DashboardPage() {
   const loadStockData = async () => {
     setLoading(true);
 
-    // URL CSV LANGSUNG KE SHEET BARU DENGAN TIMESTAMP ANTI-CACHE
     const timestamp = Date.now();
     const csvUrl = `https://docs.google.com/spreadsheets/d/1CmfqkuK2w9GDuohbFIandJGLnlZMrwR-19m5hMA7E4E/export?format=csv&gid=0&_cb=${timestamp}`;
 
@@ -94,7 +93,6 @@ export default function DashboardPage() {
         return;
       }
 
-      // Ambil Last Update dari baris kedua (M2 / indeks ke-1)
       let updateTime = "Belum Diupdate";
       if (lines.length > 1) {
         const barisKedua = splitCSV(lines[1]);
@@ -104,7 +102,6 @@ export default function DashboardPage() {
       }
       setLastUpdatePack(updateTime);
 
-      // Ambil Header dari baris pertama
       const packHeaders: string[] = [];
       const barisPertama = splitCSV(lines[0]);
       for (let h = 1; h < barisPertama.length; h++) {
@@ -113,7 +110,6 @@ export default function DashboardPage() {
         packHeaders.push(headName.toUpperCase());
       }
 
-      // Parsing Data Produk Kemasan
       const parsedPackaging: PackagingItem[] = [];
       for (let i = 1; i < lines.length; i++) {
         const c = splitCSV(lines[i]);
@@ -161,7 +157,7 @@ export default function DashboardPage() {
         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
             <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
-              📦 Dashboard Stok Kemasan Sarina
+              📦 Stok Kemasan
             </h1>
             <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
               📅 Update Terakhir: <span className="font-semibold text-slate-700">{lastUpdatePack}</span>
@@ -213,16 +209,9 @@ export default function DashboardPage() {
                     <h2 className="font-bold text-slate-900 text-base sm:text-lg">
                       {pack.nama}
                     </h2>
-                    <span className="text-xs font-semibold bg-slate-100 text-slate-600 px-2.5 py-1 rounded-md border border-slate-200">
-                      {pack.gramasi}
-                    </span>
                   </div>
 
-                  {pack.varian.length === 0 ? (
-                    <p className="text-xs text-slate-400 italic">
-                      Belum ada ukuran aktif untuk produk ini
-                    </p>
-                  ) : (
+                  {pack.varian.length > 0 && (
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                       {pack.varian.map((v, sIdx) => (
                         <div
