@@ -19,7 +19,7 @@ function splitCSV(line: string) {
   return result;
 }
 
-// HELPER PARSE PECAHAN & WARNA STOK KEMASAN (< 3 JADI MERAH)
+// HELPER PARSE PECAHAN & WARNA STOK KEMASAN (Merah < 3, Kuning = 3, Hijau > 3)
 function formatPecahanIkat(val: string) {
   if (!val || val === "-" || val.trim() === "" || val.trim() === "0") {
     return null; 
@@ -30,7 +30,7 @@ function formatPecahanIkat(val: string) {
   let angkaBersih = rawStr.replace(/,/g, '.').replace(/[^0-9.-]/g, '');
   let num = parseFloat(angkaBersih);
 
-  if (isNaN(num)) return { text: rawStr, isRed: false };
+  if (isNaN(num)) return { text: rawStr, colorClass: 'text-emerald-700' };
 
   let utuh = Math.floor(Math.abs(num));
   let sisa = Math.abs(num) - utuh;
@@ -55,13 +55,22 @@ function formatPecahanIkat(val: string) {
   }
 
   let teksHasil = hasilAngka + (unitTxt ? " " + unitTxt : " ikat");
-  return { text: teksHasil, isRed: num < 3 };
+
+  // Tentukan Warna Berdasarkan Angka
+  let colorClass = 'text-emerald-700'; // Hijau (> 3)
+  if (num < 3) {
+    colorClass = 'text-rose-600';     // Merah (< 3)
+  } else if (num === 3) {
+    colorClass = 'text-amber-500';    // Kuning (= 3)
+  }
+
+  return { text: teksHasil, colorClass };
 }
 
 interface VarianItem {
   header: string;
   text: string;
-  isRed: boolean;
+  colorClass: string;
 }
 
 interface PackagingItem {
@@ -222,9 +231,7 @@ export default function DashboardPage() {
                             {v.header}
                           </span>
                           <span
-                            className={`text-sm sm:text-base font-bold mt-1 ${
-                              v.isRed ? 'text-rose-600' : 'text-emerald-700'
-                            }`}
+                            className={`text-sm sm:text-base font-bold mt-1 ${v.colorClass}`}
                           >
                             {v.text}
                           </span>
