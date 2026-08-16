@@ -342,148 +342,56 @@ export default function DashboardPage() {
         </div>
 
         {/* ======================================
-            LOW STOCK SECTION
+            LOW STOCK SECTION — compact horizontal cards
         ====================================== */}
         {!loading && lowStockItems.length > 0 && (
           <div className="bg-white rounded-2xl border border-rose-200 shadow-sm overflow-hidden">
 
-            {/* Section Header */}
-            <button
-              onClick={() => setLowStockCollapsed(!lowStockCollapsed)}
-              className="
-                w-full flex items-center justify-between
-                px-4 py-3
-                bg-rose-50 hover:bg-rose-100
-                transition-colors
-              "
-            >
-              <div className="flex items-center gap-2">
-                <span className="text-base">🚨</span>
-                <span className="font-bold text-rose-700 text-sm sm:text-base">
-                  Stok Menipis
-                </span>
-                <span className="
-                  bg-rose-600 text-white
-                  text-[11px] font-bold
-                  px-2 py-0.5 rounded-full
-                ">
-                  {lowStockItems.length} item
-                </span>
-              </div>
-              <span className="text-rose-400 text-xs font-medium">
-                {lowStockCollapsed ? '▼ Tampilkan' : '▲ Sembunyikan'}
+            {/* Header */}
+            <div className="flex items-center gap-2 px-3 py-2 bg-rose-50 border-b border-rose-100">
+              <span className="text-sm">🚨</span>
+              <span className="font-bold text-rose-700 text-xs sm:text-sm">Stok Menipis</span>
+              <span className="bg-rose-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                {lowStockItems.length}
               </span>
-            </button>
+            </div>
 
-            {/* Table */}
-            {!lowStockCollapsed && (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-slate-50 border-b border-slate-200">
-                      <th className="
-                        text-left px-4 py-2.5
-                        text-xs font-semibold text-slate-500
-                        uppercase tracking-wider
-                        w-6
-                      ">#</th>
-                      <th className="
-                        text-left px-4 py-2.5
-                        text-xs font-semibold text-slate-500
-                        uppercase tracking-wider
-                      ">Nama Produk</th>
-                      <th className="
-                        text-left px-4 py-2.5
-                        text-xs font-semibold text-slate-500
-                        uppercase tracking-wider
-                      ">Kemasan</th>
-                      <th className="
-                        text-center px-4 py-2.5
-                        text-xs font-semibold text-slate-500
-                        uppercase tracking-wider
-                      ">Stok</th>
-                      <th className="
-                        text-center px-4 py-2.5
-                        text-xs font-semibold text-slate-500
-                        uppercase tracking-wider
-                      ">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {lowStockItems.map((item, idx) => {
-                      const isHabis = item.numericValue !== null && item.numericValue < 3;
-                      return (
-                        <tr
-                          key={idx}
-                          className={`
-                            border-b border-slate-100 last:border-0
-                            ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}
-                            hover:bg-rose-50/40 transition-colors
-                          `}
-                        >
-                          {/* No */}
-                          <td className="px-4 py-3 text-xs text-slate-400 font-medium">
-                            {idx + 1}
-                          </td>
+            {/* Horizontal scroll cards */}
+            <div className="flex gap-2 overflow-x-auto px-3 py-2.5 scrollbar-hide">
+              {lowStockItems.map((item, idx) => {
+                const isKritis = item.numericValue !== null && item.numericValue < 3;
+                return (
+                  <div
+                    key={idx}
+                    className={`
+                      flex-shrink-0 rounded-lg border px-3 py-2
+                      flex flex-col gap-0.5 min-w-[130px] max-w-[160px]
+                      ${isKritis
+                        ? 'bg-rose-50 border-rose-300'
+                        : 'bg-amber-50 border-amber-300'}
+                    `}
+                  >
+                    {/* Status dot + kemasan */}
+                    <div className="flex items-center gap-1">
+                      <span className="text-[10px]">{isKritis ? '🔴' : '🟡'}</span>
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide truncate">
+                        {item.header}
+                      </span>
+                    </div>
 
-                          {/* Nama Produk */}
-                          <td className="px-4 py-3">
-                            <span className="font-semibold text-slate-800 text-sm">
-                              {item.nama}
-                            </span>
-                          </td>
+                    {/* Nama produk */}
+                    <p className="text-[11px] font-semibold text-slate-700 leading-tight line-clamp-2">
+                      {item.nama}
+                    </p>
 
-                          {/* Kemasan/Header */}
-                          <td className="px-4 py-3">
-                            <span className="
-                              bg-slate-100 text-slate-600
-                              text-xs font-semibold
-                              px-2 py-1 rounded-md
-                              uppercase tracking-wide
-                            ">
-                              {item.header}
-                            </span>
-                          </td>
-
-                          {/* Stok */}
-                          <td className="px-4 py-3 text-center">
-                            <span className={`
-                              font-bold text-sm
-                              ${isHabis ? 'text-rose-600' : 'text-amber-500'}
-                            `}>
-                              {item.text}
-                            </span>
-                          </td>
-
-                          {/* Status Badge */}
-                          <td className="px-4 py-3 text-center">
-                            {isHabis ? (
-                              <span className="
-                                bg-rose-100 text-rose-700
-                                text-[11px] font-bold
-                                px-2.5 py-1 rounded-full
-                                whitespace-nowrap
-                              ">
-                                🔴 Kritis
-                              </span>
-                            ) : (
-                              <span className="
-                                bg-amber-100 text-amber-700
-                                text-[11px] font-bold
-                                px-2.5 py-1 rounded-full
-                                whitespace-nowrap
-                              ">
-                                🟡 Menipis
-                              </span>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                    {/* Stok */}
+                    <span className={`text-sm font-bold mt-0.5 ${isKritis ? 'text-rose-600' : 'text-amber-500'}`}>
+                      {item.text}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
 
           </div>
         )}
