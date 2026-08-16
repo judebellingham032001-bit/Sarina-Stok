@@ -168,9 +168,13 @@ export default function DashboardPage() {
             <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
               📦 Stok Kemasan
             </h1>
-            <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-              📅 Update Terakhir: <span className="font-semibold text-slate-700">{lastUpdatePack}</span>
-            </p>
+<p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+  📅 Update Terakhir: <span className="font-semibold text-slate-700">{lastUpdatePack}</span>
+</p>
+
+<p className="text-[11px] sm:text-xs text-slate-400 mt-2 leading-relaxed max-w-2xl">
+  ⚠️ Perbedaan stok fisik dan sistem dapat terjadi apabila terdapat data yang belum diinput oleh petugas packing.
+</p>
           </div>
           
           <button
