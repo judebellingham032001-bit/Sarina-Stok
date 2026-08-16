@@ -342,7 +342,7 @@ export default function DashboardPage() {
         </div>
 
         {/* ======================================
-            LOW STOCK SECTION — compact horizontal cards
+            LOW STOCK SECTION — compact wrap, no scroll
         ====================================== */}
         {!loading && lowStockItems.length > 0 && (
           <div className="bg-white rounded-2xl border border-rose-200 shadow-sm overflow-hidden">
@@ -350,42 +350,37 @@ export default function DashboardPage() {
             {/* Header */}
             <div className="flex items-center gap-2 px-3 py-2 bg-rose-50 border-b border-rose-100">
               <span className="text-sm">🚨</span>
-              <span className="font-bold text-rose-700 text-xs sm:text-sm">Stok Menipis</span>
+              <span className="font-bold text-rose-700 text-xs">Stok Menipis</span>
               <span className="bg-rose-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
                 {lowStockItems.length}
               </span>
             </div>
 
-            {/* Horizontal scroll cards */}
-            <div className="flex gap-2 overflow-x-auto px-3 py-2.5 scrollbar-hide">
+            {/* Wrap grid — semua keliatan langsung */}
+            <div className="flex flex-wrap gap-1.5 p-2.5">
               {lowStockItems.map((item, idx) => {
                 const isKritis = item.numericValue !== null && item.numericValue < 3;
                 return (
                   <div
                     key={idx}
                     className={`
-                      flex-shrink-0 rounded-lg border px-3 py-2
-                      flex flex-col gap-0.5 min-w-[130px] max-w-[160px]
+                      rounded-lg border px-2.5 py-1.5
+                      flex items-center gap-2
                       ${isKritis
-                        ? 'bg-rose-50 border-rose-300'
-                        : 'bg-amber-50 border-amber-300'}
+                        ? 'bg-rose-50 border-rose-200'
+                        : 'bg-amber-50 border-amber-200'}
                     `}
                   >
-                    {/* Status dot + kemasan */}
-                    <div className="flex items-center gap-1">
-                      <span className="text-[10px]">{isKritis ? '🔴' : '🟡'}</span>
-                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide truncate">
+                    <span className="text-[11px]">{isKritis ? '🔴' : '🟡'}</span>
+                    <div className="flex flex-col leading-tight">
+                      <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wide">
                         {item.header}
                       </span>
+                      <span className="text-[11px] font-semibold text-slate-700 max-w-[120px] truncate">
+                        {item.nama}
+                      </span>
                     </div>
-
-                    {/* Nama produk */}
-                    <p className="text-[11px] font-semibold text-slate-700 leading-tight line-clamp-2">
-                      {item.nama}
-                    </p>
-
-                    {/* Stok */}
-                    <span className={`text-sm font-bold mt-0.5 ${isKritis ? 'text-rose-600' : 'text-amber-500'}`}>
+                    <span className={`text-xs font-bold ml-1 whitespace-nowrap ${isKritis ? 'text-rose-600' : 'text-amber-500'}`}>
                       {item.text}
                     </span>
                   </div>
