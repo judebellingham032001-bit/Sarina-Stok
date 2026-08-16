@@ -271,11 +271,64 @@ export default function DashboardPage() {
   });
 
   // ==========================================
+  // SPLIT LOW STOCK JADI 2 KOLOM: A–M (kiri) & N–Z (kanan)
+  // ==========================================
+  const lowStockLeft: LowStockItem[] = [];
+  const lowStockRight: LowStockItem[] = [];
+  for (const item of lowStockItems) {
+    const hurufAwal = item.nama.trim().charAt(0).toUpperCase();
+    if (hurufAwal >= 'A' && hurufAwal <= 'M') {
+      lowStockLeft.push(item);
+    } else {
+      lowStockRight.push(item);
+    }
+  }
+
+  // ==========================================
   // SEARCH
   // ==========================================
   const filteredProducts = kemasanData.filter((p) =>
     p.nama.toLowerCase().includes(search.toLowerCase())
   );
+
+  // ==========================================
+  // RENDER CHIP STOK MENIPIS (dipakai di 2 kolom)
+  // ==========================================
+  const renderLowStockChip = (item: LowStockItem, idx: number) => {
+    const isKritis = item.numericValue !== null && item.numericValue < 3;
+    return (
+      <div
+        key={idx}
+        className={`
+          rounded-md border
+          flex items-center gap-1.5
+          px-2 py-1
+          ${isKritis
+            ? 'bg-rose-50 border-rose-200'
+            : 'bg-amber-50 border-amber-200'}
+        `}
+      >
+        {/* dot */}
+        <span className="text-[9px] leading-none">{isKritis ? '🔴' : '🟡'}</span>
+
+        {/* nama · ukuran */}
+        <span className="text-[11px] font-semibold text-slate-700 whitespace-nowrap">
+          {item.nama}
+        </span>
+        <span className="text-[10px] text-slate-400 font-medium whitespace-nowrap">
+          {item.header}
+        </span>
+
+        {/* divider */}
+        <span className="text-slate-300 text-[10px]">·</span>
+
+        {/* stok */}
+        <span className={`text-[11px] font-bold whitespace-nowrap ${isKritis ? 'text-rose-600' : 'text-amber-500'}`}>
+          {item.text}
+        </span>
+      </div>
+    );
+  };
 
   // ==========================================
   // RENDER
@@ -342,7 +395,7 @@ export default function DashboardPage() {
         </div>
 
         {/* ======================================
-            LOW STOCK SECTION — compact wrap, no scroll
+            LOW STOCK SECTION — 2 kolom (A–M kiri, N–Z kanan)
         ====================================== */}
         {!loading && lowStockItems.length > 0 && (
           <div className="bg-white rounded-2xl border border-rose-200 shadow-sm overflow-hidden">
@@ -356,43 +409,37 @@ export default function DashboardPage() {
               </span>
             </div>
 
-            {/* Wrap chips — uniform, compact, no scroll */}
-            <div className="flex flex-wrap gap-1.5 p-2.5">
-              {lowStockItems.map((item, idx) => {
-                const isKritis = item.numericValue !== null && item.numericValue < 3;
-                return (
-                  <div
-                    key={idx}
-                    className={`
-                      rounded-md border
-                      flex items-center gap-1.5
-                      px-2 py-1
-                      ${isKritis
-                        ? 'bg-rose-50 border-rose-200'
-                        : 'bg-amber-50 border-amber-200'}
-                    `}
-                  >
-                    {/* dot */}
-                    <span className="text-[9px] leading-none">{isKritis ? '🔴' : '🟡'}</span>
+            {/* 2 kolom: kiri A-M, kanan N-Z */}
+            <div className="grid grid-cols-2 divide-x divide-rose-100">
 
-                    {/* nama · ukuran */}
-                    <span className="text-[11px] font-semibold text-slate-700 whitespace-nowrap">
-                      {item.nama}
-                    </span>
-                    <span className="text-[10px] text-slate-400 font-medium whitespace-nowrap">
-                      {item.header}
-                    </span>
+              {/* KOLOM KIRI: A–M */}
+              <div className="p-2.5">
+                <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 px-0.5">
+                  A – M
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {lowStockLeft.length === 0 ? (
+                    <span className="text-[10px] text-slate-300 italic px-0.5">-</span>
+                  ) : (
+                    lowStockLeft.map((item, idx) => renderLowStockChip(item, idx))
+                  )}
+                </div>
+              </div>
 
-                    {/* divider */}
-                    <span className="text-slate-300 text-[10px]">·</span>
+              {/* KOLOM KANAN: N–Z */}
+              <div className="p-2.5">
+                <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 px-0.5">
+                  N – Z
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {lowStockRight.length === 0 ? (
+                    <span className="text-[10px] text-slate-300 italic px-0.5">-</span>
+                  ) : (
+                    lowStockRight.map((item, idx) => renderLowStockChip(item, idx))
+                  )}
+                </div>
+              </div>
 
-                    {/* stok */}
-                    <span className={`text-[11px] font-bold whitespace-nowrap ${isKritis ? 'text-rose-600' : 'text-amber-500'}`}>
-                      {item.text}
-                    </span>
-                  </div>
-                );
-              })}
             </div>
 
           </div>
