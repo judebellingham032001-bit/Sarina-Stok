@@ -29,9 +29,6 @@ function splitCSV(line: string) {
 
 // ==========================================
 // HELPER PARSE PECAHAN & WARNA STOK KEMASAN
-// Merah < 3
-// Kuning = 3
-// Hijau > 3
 // ==========================================
 function formatPecahanIkat(val: string) {
   if (
@@ -45,12 +42,10 @@ function formatPecahanIkat(val: string) {
 
   const rawStr = val.toString().trim();
 
-  // Ambil satuan seperti "ikat", "pcs", "pack", dll
   const unitTxt = rawStr
     .replace(/[0-9.,-]/g, '')
     .trim();
 
-  // Ambil angka
   const angkaBersih = rawStr
     .replace(/,/g, '.')
     .replace(/[^0-9.-]/g, '');
@@ -61,16 +56,15 @@ function formatPecahanIkat(val: string) {
     return {
       text: rawStr,
       colorClass: 'text-emerald-700',
+      numericValue: null as number | null,
     };
   }
 
   const utuhAwal = Math.floor(Math.abs(num));
   let utuh = utuhAwal;
-
   const sisa = Math.abs(num) - utuh;
   let pecahanTxt = '';
 
-  // Konversi desimal ke pecahan Unicode
   if (Math.abs(sisa - 0.25) < 0.05) {
     pecahanTxt = '¼';
   } else if (Math.abs(sisa - 0.5) < 0.05) {
@@ -89,7 +83,6 @@ function formatPecahanIkat(val: string) {
   const prefix = num < 0 ? '-' : '';
 
   let hasilAngka = '';
-
   if (utuh === 0 && pecahanTxt !== '') {
     hasilAngka = prefix + pecahanTxt;
   } else if (pecahanTxt !== '') {
@@ -101,11 +94,7 @@ function formatPecahanIkat(val: string) {
   const teksHasil =
     hasilAngka + (unitTxt ? ' ' + unitTxt : ' ikat');
 
-  // ==========================================
-  // WARNA STOK
-  // ==========================================
   let colorClass = 'text-emerald-700';
-
   if (num < 3) {
     colorClass = 'text-rose-600';
   } else if (num === 3) {
@@ -115,6 +104,7 @@ function formatPecahanIkat(val: string) {
   return {
     text: teksHasil,
     colorClass,
+    numericValue: num,
   };
 }
 
@@ -125,12 +115,20 @@ interface VarianItem {
   header: string;
   text: string;
   colorClass: string;
+  numericValue: number | null;
 }
 
 interface PackagingItem {
   nama: string;
   gramasi: string;
   varian: VarianItem[];
+}
+
+interface LowStockItem {
+  nama: string;
+  header: string;
+  text: string;
+  numericValue: number | null;
 }
 
 // ==========================================
@@ -141,6 +139,7 @@ export default function DashboardPage() {
   const [lastUpdatePack, setLastUpdatePack] = useState('-');
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+  const [lowStockCollapsed, setLowStockCollapsed] = useState(false);
 
   // ==========================================
   // LOAD DATA GOOGLE SHEETS
@@ -170,36 +169,23 @@ export default function DashboardPage() {
         return;
       }
 
-      // ==========================================
       // LAST UPDATE
-      // ==========================================
       let updateTime = 'Belum Diupdate';
-
       if (lines.length > 1) {
         const barisKedua = splitCSV(lines[1]);
-
-        if (
-          barisKedua[12] &&
-          barisKedua[12].trim() !== ''
-        ) {
+        if (barisKedua[12] && barisKedua[12].trim() !== '') {
           updateTime = barisKedua[12].trim();
         }
       }
-
       setLastUpdatePack(updateTime);
 
-      // ==========================================
       // HEADER VARIAN
-      // ==========================================
       const packHeaders: string[] = [];
-
       const barisPertama = splitCSV(lines[0]);
-
       for (let h = 1; h < barisPertama.length; h++) {
         const headName = barisPertama[h]
           ? barisPertama[h].trim()
           : '';
-
         if (
           !headName ||
           h >= 12 ||
@@ -207,18 +193,13 @@ export default function DashboardPage() {
         ) {
           break;
         }
-
         packHeaders.push(headName.toUpperCase());
       }
 
-      // ==========================================
       // PARSING DATA PRODUK
-      // ==========================================
       const parsedPackaging: PackagingItem[] = [];
-
       for (let i = 1; i < lines.length; i++) {
         const c = splitCSV(lines[i]);
-
         if (
           !c[0] ||
           c[0].trim() === '' ||
@@ -228,22 +209,13 @@ export default function DashboardPage() {
         }
 
         const listVarian: VarianItem[] = [];
-
-        for (
-          let vIdx = 0;
-          vIdx < packHeaders.length;
-          vIdx++
-        ) {
+        for (let vIdx = 0; vIdx < packHeaders.length; vIdx++) {
           const nilaiKolom = c[vIdx + 1];
-
           const valClean =
             nilaiKolom && nilaiKolom.trim() !== ''
               ? nilaiKolom.trim()
               : '-';
-
-          const formattedData =
-            formatPecahanIkat(valClean);
-
+          const formattedData = formatPecahanIkat(valClean);
           if (formattedData !== null) {
             listVarian.push({
               header: packHeaders[vIdx],
@@ -262,29 +234,47 @@ export default function DashboardPage() {
       setKemasanData(parsedPackaging);
       setLoading(false);
     } catch (err) {
-      console.error(
-        'Gagal mengambil data kemasan:',
-        err
-      );
-
+      console.error('Gagal mengambil data kemasan:', err);
       setLoading(false);
     }
   };
 
-  // ==========================================
-  // LOAD PERTAMA KALI
-  // ==========================================
   useEffect(() => {
     loadStockData();
   }, []);
 
   // ==========================================
+  // COMPUTE LOW STOCK ITEMS (≤ 3)
+  // ==========================================
+  const lowStockItems: LowStockItem[] = [];
+  for (const pack of kemasanData) {
+    for (const v of pack.varian) {
+      if (
+        v.numericValue !== null &&
+        v.numericValue <= 3
+      ) {
+        lowStockItems.push({
+          nama: pack.nama,
+          header: v.header,
+          text: v.text,
+          numericValue: v.numericValue,
+        });
+      }
+    }
+  }
+
+  // Sort: merah dulu (< 3), lalu kuning (= 3)
+  lowStockItems.sort((a, b) => {
+    const aVal = a.numericValue ?? 999;
+    const bVal = b.numericValue ?? 999;
+    return aVal - bVal;
+  });
+
+  // ==========================================
   // SEARCH
   // ==========================================
   const filteredProducts = kemasanData.filter((p) =>
-    p.nama
-      .toLowerCase()
-      .includes(search.toLowerCase())
+    p.nama.toLowerCase().includes(search.toLowerCase())
   );
 
   // ==========================================
@@ -292,7 +282,6 @@ export default function DashboardPage() {
   // ==========================================
   return (
     <div className="min-h-screen bg-slate-100 p-4 sm:p-6 text-slate-800">
-
       <div className="max-w-4xl mx-auto space-y-4">
 
         {/* ======================================
@@ -305,143 +294,216 @@ export default function DashboardPage() {
             onClick={loadStockData}
             disabled={loading}
             className="
-              absolute
-              top-5
-              right-5
-              flex
-              items-center
-              justify-center
-              gap-2
-              bg-emerald-600
-              hover:bg-emerald-700
-              text-white
-              font-semibold
-              text-xs
-              px-4
-              py-2.5
-              rounded-xl
-              transition-all
-              shadow-sm
-              active:scale-95
+              absolute top-5 right-5
+              flex items-center justify-center gap-2
+              bg-emerald-600 hover:bg-emerald-700
+              text-white font-semibold text-xs
+              px-4 py-2.5 rounded-xl
+              transition-all shadow-sm active:scale-95
               disabled:opacity-50
             "
           >
-            <span
-              className={
-                loading ? 'animate-spin' : ''
-              }
-            >
-              🔄
-            </span>
-
-            {loading
-              ? 'Refreshing...'
-              : 'Refresh Data'}
+            <span className={loading ? 'animate-spin' : ''}>🔄</span>
+            {loading ? 'Refreshing...' : 'Refresh Data'}
           </button>
 
-          {/* Logo Center */}
+          {/* Logo */}
           <div className="flex justify-center">
-
             <img
               src="/Sarina.png"
               alt="Sarina"
-              className="
-                h-16
-                sm:h-20
-                w-auto
-                object-contain
-              "
+              className="h-16 sm:h-20 w-auto object-contain"
             />
-
           </div>
 
           {/* Title */}
           <div className="text-center mt-2">
-
-            <h1 className="
-              text-xl
-              sm:text-2xl
-              font-bold
-              text-slate-900
-            ">
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
               📦 Stok Kemasan Sarina
             </h1>
-
-            <p className="
-              text-xs
-              sm:text-sm
-              text-slate-500
-              mt-1
-            ">
+            <p className="text-xs sm:text-sm text-slate-500 mt-1">
               📅 Update Terakhir:{' '}
               <span className="font-semibold text-slate-700">
                 {lastUpdatePack}
               </span>
             </p>
-
           </div>
 
           {/* Catatan */}
-          <div className="
-            mt-4
-            bg-amber-50
-            border
-            border-amber-200
-            rounded-lg
-            px-3
-            py-2
-            max-w-2xl
-            mx-auto
-          ">
-
-            <p className="
-              text-[11px]
-              sm:text-xs
-              text-amber-800
-              leading-relaxed
-              font-medium
-            ">
+          <div className="mt-4 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 max-w-2xl mx-auto">
+            <p className="text-[11px] sm:text-xs text-amber-800 leading-relaxed font-medium">
               ⚠️{' '}
-              <span className="font-bold">
-                Catatan:
-              </span>{' '}
-              Perbedaan stok fisik dan sistem dapat
-              terjadi apabila terdapat data yang belum
-              diinput oleh petugas packing.
+              <span className="font-bold">Catatan:</span>{' '}
+              Perbedaan stok fisik dan sistem dapat terjadi apabila
+              terdapat data yang belum diinput oleh petugas packing.
             </p>
-
           </div>
 
         </div>
 
         {/* ======================================
+            LOW STOCK SECTION
+        ====================================== */}
+        {!loading && lowStockItems.length > 0 && (
+          <div className="bg-white rounded-2xl border border-rose-200 shadow-sm overflow-hidden">
+
+            {/* Section Header */}
+            <button
+              onClick={() => setLowStockCollapsed(!lowStockCollapsed)}
+              className="
+                w-full flex items-center justify-between
+                px-4 py-3
+                bg-rose-50 hover:bg-rose-100
+                transition-colors
+              "
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-base">🚨</span>
+                <span className="font-bold text-rose-700 text-sm sm:text-base">
+                  Stok Menipis
+                </span>
+                <span className="
+                  bg-rose-600 text-white
+                  text-[11px] font-bold
+                  px-2 py-0.5 rounded-full
+                ">
+                  {lowStockItems.length} item
+                </span>
+              </div>
+              <span className="text-rose-400 text-xs font-medium">
+                {lowStockCollapsed ? '▼ Tampilkan' : '▲ Sembunyikan'}
+              </span>
+            </button>
+
+            {/* Table */}
+            {!lowStockCollapsed && (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-200">
+                      <th className="
+                        text-left px-4 py-2.5
+                        text-xs font-semibold text-slate-500
+                        uppercase tracking-wider
+                        w-6
+                      ">#</th>
+                      <th className="
+                        text-left px-4 py-2.5
+                        text-xs font-semibold text-slate-500
+                        uppercase tracking-wider
+                      ">Nama Produk</th>
+                      <th className="
+                        text-left px-4 py-2.5
+                        text-xs font-semibold text-slate-500
+                        uppercase tracking-wider
+                      ">Kemasan</th>
+                      <th className="
+                        text-center px-4 py-2.5
+                        text-xs font-semibold text-slate-500
+                        uppercase tracking-wider
+                      ">Stok</th>
+                      <th className="
+                        text-center px-4 py-2.5
+                        text-xs font-semibold text-slate-500
+                        uppercase tracking-wider
+                      ">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {lowStockItems.map((item, idx) => {
+                      const isHabis = item.numericValue !== null && item.numericValue < 3;
+                      return (
+                        <tr
+                          key={idx}
+                          className={`
+                            border-b border-slate-100 last:border-0
+                            ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}
+                            hover:bg-rose-50/40 transition-colors
+                          `}
+                        >
+                          {/* No */}
+                          <td className="px-4 py-3 text-xs text-slate-400 font-medium">
+                            {idx + 1}
+                          </td>
+
+                          {/* Nama Produk */}
+                          <td className="px-4 py-3">
+                            <span className="font-semibold text-slate-800 text-sm">
+                              {item.nama}
+                            </span>
+                          </td>
+
+                          {/* Kemasan/Header */}
+                          <td className="px-4 py-3">
+                            <span className="
+                              bg-slate-100 text-slate-600
+                              text-xs font-semibold
+                              px-2 py-1 rounded-md
+                              uppercase tracking-wide
+                            ">
+                              {item.header}
+                            </span>
+                          </td>
+
+                          {/* Stok */}
+                          <td className="px-4 py-3 text-center">
+                            <span className={`
+                              font-bold text-sm
+                              ${isHabis ? 'text-rose-600' : 'text-amber-500'}
+                            `}>
+                              {item.text}
+                            </span>
+                          </td>
+
+                          {/* Status Badge */}
+                          <td className="px-4 py-3 text-center">
+                            {isHabis ? (
+                              <span className="
+                                bg-rose-100 text-rose-700
+                                text-[11px] font-bold
+                                px-2.5 py-1 rounded-full
+                                whitespace-nowrap
+                              ">
+                                🔴 Kritis
+                              </span>
+                            ) : (
+                              <span className="
+                                bg-amber-100 text-amber-700
+                                text-[11px] font-bold
+                                px-2.5 py-1 rounded-full
+                                whitespace-nowrap
+                              ">
+                                🟡 Menipis
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+          </div>
+        )}
+
+        {/* ======================================
             SEARCH BAR
         ====================================== */}
         <div className="relative">
-
           <input
             type="text"
             placeholder="🔍 Cari nama produk kemasan..."
             value={search}
-            onChange={(e) =>
-              setSearch(e.target.value)
-            }
+            onChange={(e) => setSearch(e.target.value)}
             className="
-              w-full
-              bg-white
-              border
-              border-slate-300
-              rounded-xl
-              px-4
-              py-3
-              text-sm
-              focus:outline-none
-              focus:ring-2
-              focus:ring-slate-800
+              w-full bg-white border border-slate-300
+              rounded-xl px-4 py-3 text-sm
+              focus:outline-none focus:ring-2 focus:ring-slate-800
               shadow-sm
             "
           />
-
         </div>
 
         {/* ======================================
@@ -449,161 +511,88 @@ export default function DashboardPage() {
         ====================================== */}
         {loading && (
           <div className="
-            bg-white
-            p-8
-            text-center
-            rounded-2xl
-            border
-            border-slate-200
-            shadow-sm
-            text-slate-500
-            text-sm
+            bg-white p-8 text-center rounded-2xl
+            border border-slate-200 shadow-sm
+            text-slate-500 text-sm
           ">
-            ⏳ Memuat data kemasan langsung dari
-            Google Sheet...
+            ⏳ Memuat data kemasan langsung dari Google Sheet...
           </div>
         )}
 
         {/* ======================================
             EMPTY STATE
         ====================================== */}
-        {!loading &&
-          filteredProducts.length === 0 ? (
-
+        {!loading && filteredProducts.length === 0 ? (
           <div className="
-            bg-white
-            p-8
-            text-center
-            rounded-2xl
-            border
-            border-slate-200
-            shadow-sm
-            text-slate-500
-            text-sm
+            bg-white p-8 text-center rounded-2xl
+            border border-slate-200 shadow-sm
+            text-slate-500 text-sm
           ">
-
             {search
               ? 'Produk kemasan tidak ditemukan.'
               : 'Belum ada data kemasan.'}
-
           </div>
-
         ) : (
 
           /* ====================================
              PRODUCT LIST
           ==================================== */
           <div className="space-y-3">
-
             {!loading &&
-              filteredProducts.map(
-                (pack, idx) => (
-
-                  <div
-                    key={idx}
-                    className="
-                      bg-white
-                      p-4
-                      rounded-xl
-                      border
-                      border-slate-200
-                      shadow-sm
-                      hover:border-slate-300
-                      transition-all
-                    "
-                  >
-
-                    {/* Product Name */}
-                    <div className="
-                      flex
-                      justify-between
-                      items-center
-                      border-b
-                      border-slate-100
-                      pb-2
-                      mb-3
-                    ">
-
-                      <h2 className="
-                        font-bold
-                        text-slate-900
-                        text-base
-                        sm:text-lg
-                      ">
-                        {pack.nama}
-                      </h2>
-
-                    </div>
-
-                    {/* Variants */}
-                    {pack.varian.length > 0 && (
-
-                      <div className="
-                        grid
-                        grid-cols-2
-                        sm:grid-cols-3
-                        gap-2
-                      ">
-
-                        {pack.varian.map(
-                          (v, sIdx) => (
-
-                            <div
-                              key={sIdx}
-                              className="
-                                bg-slate-50
-                                border
-                                border-slate-200
-                                rounded-lg
-                                p-2.5
-                                flex
-                                flex-col
-                                justify-between
-                              "
-                            >
-
-                              <span className="
-                                text-xs
-                                text-slate-500
-                                font-semibold
-                                uppercase
-                                tracking-wider
-                              ">
-                                {v.header}
-                              </span>
-
-                              <span
-                                className={`
-                                  text-sm
-                                  sm:text-base
-                                  font-bold
-                                  mt-1
-                                  ${v.colorClass}
-                                `}
-                              >
-                                {v.text}
-                              </span>
-
-                            </div>
-
-                          )
-                        )}
-
-                      </div>
-
-                    )}
-
+              filteredProducts.map((pack, idx) => (
+                <div
+                  key={idx}
+                  className="
+                    bg-white p-4 rounded-xl
+                    border border-slate-200 shadow-sm
+                    hover:border-slate-300 transition-all
+                  "
+                >
+                  {/* Product Name */}
+                  <div className="
+                    flex justify-between items-center
+                    border-b border-slate-100 pb-2 mb-3
+                  ">
+                    <h2 className="font-bold text-slate-900 text-base sm:text-lg">
+                      {pack.nama}
+                    </h2>
                   </div>
 
-                )
-              )}
-
+                  {/* Variants */}
+                  {pack.varian.length > 0 && (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {pack.varian.map((v, sIdx) => (
+                        <div
+                          key={sIdx}
+                          className={`
+                            border rounded-lg p-2.5
+                            flex flex-col justify-between
+                            ${
+                              v.numericValue !== null && v.numericValue <= 3
+                                ? 'bg-rose-50/60 border-rose-200'
+                                : 'bg-slate-50 border-slate-200'
+                            }
+                          `}
+                        >
+                          <span className="
+                            text-xs text-slate-500 font-semibold
+                            uppercase tracking-wider
+                          ">
+                            {v.header}
+                          </span>
+                          <span className={`text-sm sm:text-base font-bold mt-1 ${v.colorClass}`}>
+                            {v.text}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
           </div>
-
         )}
 
       </div>
-
     </div>
   );
 }
