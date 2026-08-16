@@ -271,18 +271,11 @@ export default function DashboardPage() {
   });
 
   // ==========================================
-  // SPLIT LOW STOCK JADI 2 KOLOM: A–M (kiri) & N–Z (kanan)
+  // SPLIT LOW STOCK JADI 2 KOLOM (rata jumlah, bukan abjad)
   // ==========================================
-  const lowStockLeft: LowStockItem[] = [];
-  const lowStockRight: LowStockItem[] = [];
-  for (const item of lowStockItems) {
-    const hurufAwal = item.nama.trim().charAt(0).toUpperCase();
-    if (hurufAwal >= 'A' && hurufAwal <= 'M') {
-      lowStockLeft.push(item);
-    } else {
-      lowStockRight.push(item);
-    }
-  }
+  const tengahBagi = Math.ceil(lowStockItems.length / 2);
+  const lowStockLeft: LowStockItem[] = lowStockItems.slice(0, tengahBagi);
+  const lowStockRight: LowStockItem[] = lowStockItems.slice(tengahBagi);
 
   // ==========================================
   // SEARCH
@@ -292,38 +285,28 @@ export default function DashboardPage() {
   );
 
   // ==========================================
-  // RENDER CHIP STOK MENIPIS (dipakai di 2 kolom)
+  // RENDER BARIS STOK MENIPIS (dipakai di 2 kolom)
+  // Pakai layout baris tabel: nama kiri (truncate), stok kanan.
+  // min-w-0 + truncate supaya nama panjang dipotong rapi jadi "..."
+  // dan tidak overflow keluar kolom.
   // ==========================================
-  const renderLowStockChip = (item: LowStockItem, idx: number) => {
+  const renderLowStockRow = (item: LowStockItem, idx: number) => {
     const isKritis = item.numericValue !== null && item.numericValue < 3;
     return (
       <div
         key={idx}
-        className={`
-          rounded-md border
-          flex items-center gap-1.5
-          px-2 py-1
-          ${isKritis
-            ? 'bg-rose-50 border-rose-200'
-            : 'bg-amber-50 border-amber-200'}
-        `}
+        className="flex items-center justify-between gap-2 py-1.5 border-b border-slate-100 last:border-b-0"
       >
-        {/* dot */}
-        <span className="text-[9px] leading-none">{isKritis ? '🔴' : '🟡'}</span>
-
-        {/* nama · ukuran */}
-        <span className="text-[11px] font-semibold text-slate-700 whitespace-nowrap">
-          {item.nama}
-        </span>
-        <span className="text-[10px] text-slate-400 font-medium whitespace-nowrap">
-          {item.header}
-        </span>
-
-        {/* divider */}
-        <span className="text-slate-300 text-[10px]">·</span>
-
-        {/* stok */}
-        <span className={`text-[11px] font-bold whitespace-nowrap ${isKritis ? 'text-rose-600' : 'text-amber-500'}`}>
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span className="text-[8px] shrink-0">{isKritis ? '🔴' : '🟡'}</span>
+          <span className="text-[11px] font-semibold text-slate-700 truncate" title={item.nama}>
+            {item.nama}
+          </span>
+          <span className="text-[9px] text-slate-400 font-medium shrink-0">
+            {item.header}
+          </span>
+        </div>
+        <span className={`text-[11px] font-bold shrink-0 ${isKritis ? 'text-rose-600' : 'text-amber-500'}`}>
           {item.text}
         </span>
       </div>
@@ -409,35 +392,21 @@ export default function DashboardPage() {
               </span>
             </div>
 
-            {/* 2 kolom: kiri A-M, kanan N-Z */}
+            {/* 2 kolom rata jumlah — dibuat seperti tabel biar enak dibaca */}
             <div className="grid grid-cols-2 divide-x divide-rose-100">
 
-              {/* KOLOM KIRI: A–M */}
-              <div className="p-2.5">
-                <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 px-0.5">
-                  A – M
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {lowStockLeft.length === 0 ? (
-                    <span className="text-[10px] text-slate-300 italic px-0.5">-</span>
-                  ) : (
-                    lowStockLeft.map((item, idx) => renderLowStockChip(item, idx))
-                  )}
-                </div>
+              {/* KOLOM KIRI */}
+              <div className="px-3 py-1">
+                {lowStockLeft.map((item, idx) => renderLowStockRow(item, idx))}
               </div>
 
-              {/* KOLOM KANAN: N–Z */}
-              <div className="p-2.5">
-                <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 px-0.5">
-                  N – Z
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {lowStockRight.length === 0 ? (
-                    <span className="text-[10px] text-slate-300 italic px-0.5">-</span>
-                  ) : (
-                    lowStockRight.map((item, idx) => renderLowStockChip(item, idx))
-                  )}
-                </div>
+              {/* KOLOM KANAN */}
+              <div className="px-3 py-1">
+                {lowStockRight.length === 0 ? (
+                  <span className="text-[10px] text-slate-300 italic">-</span>
+                ) : (
+                  lowStockRight.map((item, idx) => renderLowStockRow(item, idx))
+                )}
               </div>
 
             </div>
