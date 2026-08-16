@@ -343,7 +343,7 @@ export default function DashboardPage() {
           <div className="flex justify-center">
 
             <img
-              src="/sarina.png"
+              src="/Sarina.png"
               alt="Sarina"
               className="
                 h-16
