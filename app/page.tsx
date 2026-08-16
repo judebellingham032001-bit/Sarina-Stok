@@ -166,7 +166,7 @@ return (
       <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <img
-            src="/sarina.png"
+            src="/Sarina.png"
             alt="Sarina"
             className="h-10 sm:h-12 w-auto mb-2 object-contain"
           />
