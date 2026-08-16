@@ -89,7 +89,7 @@ export default function DashboardPage() {
     setLoading(true);
 
     const timestamp = Date.now();
-    const csvUrl = `https://docs.google.com/spreadsheets/d/1CmfqkuK2w9GDuohbFIandJGLnlZMrwR-19m5hMA7E4E/export?format=csv&gid=0&_cb=${timestamp}`;
+    const csvUrl = https://docs.google.com/spreadsheets/d/1CmfqkuK2w9GDuohbFIandJGLnlZMrwR-19m5hMA7E4E/export?format=csv&gid=0&_cb=${timestamp};
 
     try {
       const response = await fetch(csvUrl, { cache: 'no-store' });
@@ -168,13 +168,9 @@ export default function DashboardPage() {
             <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
               📦 Stok Kemasan
             </h1>
-<p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-  📅 Update Terakhir: <span className="font-semibold text-slate-700">{lastUpdatePack}</span>
-</p>
-
-<p className="text-[11px] sm:text-xs text-slate-400 mt-2 leading-relaxed max-w-2xl">
-  ⚠️ Perbedaan stok fisik dan sistem dapat terjadi apabila terdapat data yang belum diinput oleh petugas packing.
-</p>
+            <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+              📅 Update Terakhir: <span className="font-semibold text-slate-700">{lastUpdatePack}</span>
+            </p>
           </div>
           
           <button
@@ -235,7 +231,7 @@ export default function DashboardPage() {
                             {v.header}
                           </span>
                           <span
-                            className={`text-sm sm:text-base font-bold mt-1 ${v.colorClass}`}
+                            className={text-sm sm:text-base font-bold mt-1 ${v.colorClass}}
                           >
                             {v.text}
                           </span>
