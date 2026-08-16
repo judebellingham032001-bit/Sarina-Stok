@@ -286,29 +286,33 @@ export default function DashboardPage() {
 
   // ==========================================
   // RENDER BARIS STOK MENIPIS (dipakai di 2 kolom)
-  // Pakai layout baris tabel: nama kiri (truncate), stok kanan.
-  // min-w-0 + truncate supaya nama panjang dipotong rapi jadi "..."
-  // dan tidak overflow keluar kolom.
+  // Nama produk dibiarkan wrap penuh (tidak dipotong "...")
+  // supaya nama mirip kayak "Pistachio Cangkang" vs
+  // "Pistachio Kupas" tetap kebaca beda. Ukuran/varian
+  // dipindah ke baris kecil di bawah nama biar baris atas
+  // lega buat nama produk.
   // ==========================================
   const renderLowStockRow = (item: LowStockItem, idx: number) => {
     const isKritis = item.numericValue !== null && item.numericValue < 3;
     return (
       <div
         key={idx}
-        className="flex items-center justify-between gap-2 py-1.5 border-b border-slate-100 last:border-b-0"
+        className="py-1.5 border-b border-slate-100 last:border-b-0"
       >
-        <div className="flex items-center gap-1.5 min-w-0">
-          <span className="text-[8px] shrink-0">{isKritis ? '🔴' : '🟡'}</span>
-          <span className="text-[11px] font-semibold text-slate-700 truncate" title={item.nama}>
-            {item.nama}
-          </span>
-          <span className="text-[9px] text-slate-400 font-medium shrink-0">
-            {item.header}
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-start gap-1.5 min-w-0">
+            <span className="text-[8px] shrink-0 mt-1">{isKritis ? '🔴' : '🟡'}</span>
+            <span className="text-[11px] font-semibold text-slate-700 leading-snug break-words">
+              {item.nama}
+            </span>
+          </div>
+          <span className={`text-[11px] font-bold shrink-0 whitespace-nowrap ${isKritis ? 'text-rose-600' : 'text-amber-500'}`}>
+            {item.text}
           </span>
         </div>
-        <span className={`text-[11px] font-bold shrink-0 ${isKritis ? 'text-rose-600' : 'text-amber-500'}`}>
-          {item.text}
-        </span>
+        <div className="text-[9px] text-slate-400 font-medium pl-[14px] mt-0.5">
+          {item.header}
+        </div>
       </div>
     );
   };
