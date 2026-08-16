@@ -158,16 +158,20 @@ export default function DashboardPage() {
     p.nama.toLowerCase().includes(search.toLowerCase())
   );
 
-  return (
-<div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-  <div>
-    <img
-      src="/sarina.png"
-      alt="Sarina"
-      className="h-10 sm:h-12 w-auto mb-2 object-contain"
-    />
+return (
+  <div className="min-h-screen bg-slate-100 p-4 sm:p-6 text-slate-800">
+    <div className="max-w-4xl mx-auto space-y-4">
 
-    <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
+      {/* Header Section */}
+      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <img
+            src="/sarina.png"
+            alt="Sarina"
+            className="h-10 sm:h-12 w-auto mb-2 object-contain"
+          />
+
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
               📦 Stok Kemasan 
             </h1>
 <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
