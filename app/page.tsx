@@ -163,20 +163,25 @@ return (
     <div className="max-w-4xl mx-auto space-y-4">
 
       {/* Header Section */}
-      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <img
-            src="/Sarina.png"
-            alt="Sarina"
-            className="h-10 sm:h-12 w-auto mb-2 object-contain"
-          />
+ <div className="w-full">
+  <div className="flex justify-center mb-3">
+    <img
+      src="/sarina.png"
+      alt="Sarina"
+      className="h-16 sm:h-20 w-auto object-contain"
+    />
+  </div>
 
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
-              📦 Stok Kemasan 
-            </h1>
-<p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-  📅 Update Terakhir: <span className="font-semibold text-slate-700">{lastUpdatePack}</span>
-</p>
+  <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
+    📦 Stok Kemasan Sarina
+  </h1>
+
+  <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+    📅 Update Terakhir:{' '}
+    <span className="font-semibold text-slate-700">
+      {lastUpdatePack}
+    </span>
+  </p>
 
 <div className="mt-3 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 max-w-2xl">
   <p className="text-[11px] sm:text-xs text-amber-800 leading-relaxed font-medium">
