@@ -263,11 +263,11 @@ export default function DashboardPage() {
     }
   }
 
-  // Sort: merah dulu (< 3), lalu kuning (= 3)
+  // Sort: abjad nama produk, lalu header
   lowStockItems.sort((a, b) => {
-    const aVal = a.numericValue ?? 999;
-    const bVal = b.numericValue ?? 999;
-    return aVal - bVal;
+    const nameComp = a.nama.localeCompare(b.nama);
+    if (nameComp !== 0) return nameComp;
+    return a.header.localeCompare(b.header);
   });
 
   // ==========================================
@@ -356,7 +356,7 @@ export default function DashboardPage() {
               </span>
             </div>
 
-            {/* Wrap grid — semua keliatan langsung */}
+            {/* Wrap chips — uniform, compact, no scroll */}
             <div className="flex flex-wrap gap-1.5 p-2.5">
               {lowStockItems.map((item, idx) => {
                 const isKritis = item.numericValue !== null && item.numericValue < 3;
@@ -364,23 +364,30 @@ export default function DashboardPage() {
                   <div
                     key={idx}
                     className={`
-                      rounded-lg border px-2.5 py-1.5
-                      flex items-center gap-2
+                      rounded-md border
+                      flex items-center gap-1.5
+                      px-2 py-1
                       ${isKritis
                         ? 'bg-rose-50 border-rose-200'
                         : 'bg-amber-50 border-amber-200'}
                     `}
                   >
-                    <span className="text-[11px]">{isKritis ? '🔴' : '🟡'}</span>
-                    <div className="flex flex-col leading-tight">
-                      <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wide">
-                        {item.header}
-                      </span>
-                      <span className="text-[11px] font-semibold text-slate-700 max-w-[120px] truncate">
-                        {item.nama}
-                      </span>
-                    </div>
-                    <span className={`text-xs font-bold ml-1 whitespace-nowrap ${isKritis ? 'text-rose-600' : 'text-amber-500'}`}>
+                    {/* dot */}
+                    <span className="text-[9px] leading-none">{isKritis ? '🔴' : '🟡'}</span>
+
+                    {/* nama · ukuran */}
+                    <span className="text-[11px] font-semibold text-slate-700 whitespace-nowrap">
+                      {item.nama}
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-medium whitespace-nowrap">
+                      {item.header}
+                    </span>
+
+                    {/* divider */}
+                    <span className="text-slate-300 text-[10px]">·</span>
+
+                    {/* stok */}
+                    <span className={`text-[11px] font-bold whitespace-nowrap ${isKritis ? 'text-rose-600' : 'text-amber-500'}`}>
                       {item.text}
                     </span>
                   </div>
